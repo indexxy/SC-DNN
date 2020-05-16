@@ -4,9 +4,9 @@ from pathlib import Path
 
 import numpy as np
 
-import mlpcode.utils
+import dnn.mlpcode.utils
 
-DATASETS = mlpcode.utils.DATASETS
+DATASETS = dnn.mlpcode.utils.DATASETS
 
 DATA_DIR: Path = Path(__file__).parent / "data"
 assert DATA_DIR.exists()

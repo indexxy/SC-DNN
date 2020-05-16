@@ -1,8 +1,8 @@
-from mlpcode.network import Network
+from dnn.mlpcode.network import Network
 from SC.network import SCNetwork
-from mlpcode.loss import LossFuncs as lf
-from mlpcode.activation import ActivationFuncs as af
-from mlpcode.utils import DATASETS, MODELDIR
+from dnn.mlpcode.loss import LossFuncs as lf
+from dnn.mlpcode.activation import ActivationFuncs as af
+from dnn.mlpcode.utils import DATASETS, MODELDIR
 import time
 
 if __name__ == "__main__":

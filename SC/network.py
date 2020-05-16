@@ -4,9 +4,9 @@ import numpy as np
 
 from SC.math import dot
 from SC.utils import mat_bpe_decode, mat2SC, loadDataset
-from mlpcode.network import Network
+from dnn.mlpcode.network import Network
 from SC.utils import DATASETS
-from mlpcode.activation import ACTIVATION_FUNCTIONS
+from dnn.mlpcode.activation import ACTIVATION_FUNCTIONS
 
 
 class SCNetwork:

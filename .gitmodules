@@ -1,0 +1,3 @@
+[submodule "dnn"]
+	path = dnn
+	url = https://github.com/volf52/deep-neural-net
