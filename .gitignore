@@ -1,0 +1,9 @@
+.ipynb_checkpoints
+__pycache__
+*.pyd
+.mypy_cache
+*-ubyte
+*.lock
+*.npy
+*.zip
+*.rar
