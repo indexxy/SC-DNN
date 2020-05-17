@@ -1,20 +1,5 @@
-import os
 from numbers import Number
-from pathlib import Path
-
 import numpy as np
-
-import dnn.mlpcode.utils
-
-DATASETS = dnn.mlpcode.utils.DATASETS
-
-DATA_DIR: Path = Path(__file__).parent / "data"
-assert DATA_DIR.exists()
-
-MNIST_DIR: Path = DATA_DIR / "mnist"
-FASHION_MNIST_DIR: Path = DATA_DIR / "fashion-mnist"
-MNIST_C_DIR: Path = DATA_DIR / "mnist-c"
-
 
 # To quantize a float or an array of floats
 # returns : float or an array of floats
@@ -120,70 +105,3 @@ def mat2SC(x: np.ndarray, min=-1, max=1, precision=16) -> np.ndarray:
     for i in range(n):
         result[i] = vect2SC(x[i], min, max, precision)
     return result
-
-
-# noinspection PyTypeChecker
-# Converts a dataset to stochastic bit-stream and writes it on the disk
-# it's written in 'data' folder in the same directory where the file exists
-def dataset2SC(dataset: DATASETS, precision):
-    val = str(dataset)
-    num_instances = 10000
-
-    # todo : add cifar-10 & affNist
-
-    if val.startswith('mnist_c'):
-        write_dir = MNIST_C_DIR / val.split("-")[-1]
-    else:
-        if val.startswith('fashion'):
-            write_dir = FASHION_MNIST_DIR
-        else:
-            write_dir = MNIST_DIR
-
-    if not write_dir.is_dir():
-        os.mkdir(write_dir)
-    write_dir = write_dir / str(precision)
-
-    if not write_dir.is_dir():
-        os.mkdir(write_dir)
-        os.mkdir(write_dir / 'labels')
-        os.mkdir(write_dir / 'images')
-
-    _, _, testX, testY = mlpcode.utils.loadDataset(dataset, useGpu=False)   # Redundant operation
-
-    # taking care of oneHot-encoding
-    testY = testY.argmax(axis=1)
-    testY = testY.reshape(1, -1)
-
-    # (num_instances, num_features) --> (num_features, num_instances)
-    # each column represents an instance
-    testX = testX.T
-
-    for i in range(0, num_instances, 1000):
-        Y = mat2SC(testY[:, i:i + 1000], precision=precision)
-        X = mat2SC(testX[:, i:i + 1000], precision=precision)
-        np.save(write_dir / 'labels' / str(i), Y)
-        np.save(write_dir / 'images' / str(i), X)
-
-        # Temporary
-        np.save(write_dir / 'labels' / (str(i) + '_deterministic'), testY[:, i:i + 1000])
-
-
-# noinspection PyTypeChecker
-def loadDataset(dataset: DATASETS, precision, idx):
-    dataset = str(dataset)
-    if dataset.startswith('fashion'):
-        load_dir = FASHION_MNIST_DIR
-
-    elif dataset.startswith("mnist_c"):
-        load_dir = MNIST_C_DIR / dataset.split("-")[-1]
-
-    else:
-        load_dir = MNIST_DIR
-
-    load_dir = load_dir / str(precision)
-
-    x = np.load(load_dir / 'images' / (str(idx) + '.npy'))
-    y = np.load(load_dir / 'labels' / (str(idx) + '.npy'))
-    deterministic_y = np.load(load_dir / 'labels' / (str(idx) + '_deterministic.npy'))
-
-    return x, y, deterministic_y

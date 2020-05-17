@@ -3,9 +3,9 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 
 from SC.math import dot
-from SC.utils import mat_bpe_decode, mat2SC, loadDataset
+from SC.load_utils import loadDataset, DATASETS
+from SC.stochastic import mat_bpe_decode, mat2SC
 from dnn.mlpcode.network import Network
-from SC.utils import DATASETS
 from dnn.mlpcode.activation import ACTIVATION_FUNCTIONS
 
 
@@ -67,7 +67,8 @@ class SCNetwork:
 
     def __testDatasetParallel(self, dataset: DATASETS, num_instances=10000):
         batch_size = 50
-        # Needs optimization, currently doesn't get use of > 20 processes
+
+        # tmp
         processCount = cpu_count()
         if processCount > 20:
             processCount = 20

@@ -1,7 +1,7 @@
 import numpy as np
 from numba import vectorize
 
-from SC.utils import SCNumber, random_stream, bpe_encode
+from SC.stochastic import SCNumber, random_stream, bpe_encode
 
 
 @vectorize(['boolean(boolean, boolean)'])

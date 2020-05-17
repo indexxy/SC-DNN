@@ -3,12 +3,13 @@ from SC.network import SCNetwork
 from dnn.mlpcode.loss import LossFuncs as lf
 from dnn.mlpcode.activation import ActivationFuncs as af
 from dnn.mlpcode.utils import DATASETS, MODELDIR
-import time
+
 
 if __name__ == "__main__":
+
     modelPath = MODELDIR / 'mnist_bnn_32.npz'
 
-    num_instances = 10000
+    num_instances = 1000
     precision = 8
 
     lr = 0.07
@@ -45,13 +46,7 @@ if __name__ == "__main__":
         DATASETS.mnistc_zigzag,
         DATASETS.mnistc_canny_edges,
     ]
+
     for dataset in datasets:
         correct = SC_NN.testDataset(dataset, num_instances=num_instances, parallel=True)
         print("{:s}: {:.2f}%".format(dataset, (correct * 100) / num_instances))
-
-
-
-
-
-
-

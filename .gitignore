@@ -7,3 +7,5 @@ __pycache__
 *.npy
 *.zip
 *.rar
+*.npz
+.idea/*
