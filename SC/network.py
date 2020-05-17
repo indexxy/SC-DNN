@@ -5,13 +5,11 @@ import numpy as np
 from SC.math import dot
 from SC.load_utils import loadDataset, DATASETS
 from SC.stochastic import mat_bpe_decode, mat2SC
-from dnn.mlpcode.network import Network
 from dnn.mlpcode.activation import ACTIVATION_FUNCTIONS
-
 
 class SCNetwork:
     def __init__(
-        self, network: Network, hiddenAf, outAf, precision, binarized=False
+        self, network, hiddenAf, outAf, precision, binarized=False
     ):
         self.__hiddenAf = ACTIVATION_FUNCTIONS[hiddenAf]
         self.__outAf = ACTIVATION_FUNCTIONS[outAf]
@@ -20,8 +18,8 @@ class SCNetwork:
         self.num_layers = network.num_layers
 
         if binarized:
-            weights = [Network.binarize(weights[i]) for i in range(self.num_layers)]
-            biases = [Network.binarize(biases[i]) for i in range(self.num_layers)]
+            weights = [SCNetwork.binarize(weights[i]) for i in range(self.num_layers)]
+            biases = [SCNetwork.binarize(biases[i]) for i in range(self.num_layers)]
 
         for i in range(self.num_layers):
             weights[i] = np.append(weights[i], biases[i], axis=1)
@@ -83,3 +81,10 @@ class SCNetwork:
 
         pool.close()
         return overall_correct
+
+    @staticmethod
+    def binarize(x):
+        newX = np.empty_like(x, dtype=np.int8)
+        newX[x >= 0] = 1
+        newX[x < 0] = -1
+        return newX

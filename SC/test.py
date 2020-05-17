@@ -1,15 +1,14 @@
-from dnn.mlpcode.network import Network
 from SC.network import SCNetwork
 from dnn.mlpcode.loss import LossFuncs as lf
 from dnn.mlpcode.activation import ActivationFuncs as af
-from dnn.mlpcode.utils import DATASETS, MODELDIR
-
 
 if __name__ == "__main__":
+    from dnn.mlpcode.network import Network
+    from dnn.mlpcode.utils import DATASETS, MODELDIR
 
     modelPath = MODELDIR / 'mnist_bnn_32.npz'
 
-    num_instances = 1000
+    num_instances = 10000
     precision = 8
 
     lr = 0.07
