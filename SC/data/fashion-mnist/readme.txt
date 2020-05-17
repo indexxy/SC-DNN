@@ -1,0 +1,1 @@
+Fashion-mnist dataset will be stored in this folder

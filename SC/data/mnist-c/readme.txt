@@ -1,0 +1,1 @@
+All categories of mnist-c dataset will be stored in this folder
