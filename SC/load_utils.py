@@ -10,6 +10,7 @@ MNIST_DIR: Path = DATA_DIR / "mnist"
 FASHION_MNIST_DIR: Path = DATA_DIR / "fashion-mnist"
 MNIST_C_DIR: Path = DATA_DIR / "mnist-c"
 
+
 class DATASETS(Enum):
     mnist = "mnist"
     fashion = "fashion-mnist"
@@ -37,6 +38,7 @@ class DATASETS(Enum):
 
     def __str__(self):
         return self.value
+
 
 # noinspection PyTypeChecker
 def loadDataset(dataset: DATASETS, precision, idx):

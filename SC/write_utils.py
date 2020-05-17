@@ -1,9 +1,15 @@
 from SC.stochastic import mat2SC
 import numpy as np
-import dnn.mlpcode.utils as mlputils
+from dnn.mlpcode.utils import loadMnist, loadFashionMnist, loadCifar10, loadMnistC
 import os
-
 from SC.load_utils import DATASETS, MNIST_C_DIR, FASHION_MNIST_DIR, MNIST_DIR
+
+LOADING_FUNCS = {
+    DATASETS.mnist: loadMnist,
+    DATASETS.fashion: loadFashionMnist,
+    DATASETS.cifar10: loadCifar10,
+}
+
 
 # noinspection PyTypeChecker
 # Converts a dataset to stochastic bit-stream and writes it on the disk
@@ -16,11 +22,14 @@ def dataset2SC(dataset: DATASETS, precision):
 
     if val.startswith('mnist_c'):
         write_dir = MNIST_C_DIR / val.split("-")[-1]
+        _, _, testX, testY = loadMnistC(dataset, useGpu=False)
     else:
+        load_func = LOADING_FUNCS[dataset]
         if val.startswith('fashion'):
             write_dir = FASHION_MNIST_DIR
         else:
             write_dir = MNIST_DIR
+        _, _, testX, testY = load_func(useGpu=False)
 
     if not write_dir.is_dir():
         os.mkdir(write_dir)
@@ -30,8 +39,6 @@ def dataset2SC(dataset: DATASETS, precision):
         os.mkdir(write_dir)
         os.mkdir(write_dir / 'labels')
         os.mkdir(write_dir / 'images')
-
-    _, _, testX, testY = mlputils.loadDataset(dataset, useGpu=False)   # Redundant operation
 
     # taking care of oneHot-encoding
     testY = testY.argmax(axis=1)
