@@ -18,10 +18,10 @@ if __name__ == "__main__":
     parallel = True  # Divide the dataset to batches and test them in parallel
 
     # number of instances to be tested (This should be a multiple of 1000)
-    num_instances = 1000
+    num_instances = 10000
 
     # Path of a trained DNN model
-    modelPath = MODELDIR / "mnist_fp.npz"
+    modelPath = MODELDIR / "Name of your model.npz"
     # Initializing a DNN using a pre-trained model
     nn = Network.fromModel(
         modelPath,
