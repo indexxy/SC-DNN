@@ -2,7 +2,7 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 
-from SC.math import dot
+from SC.math import dot_sc
 from SC.load_utils import loadDataset, DATASETS
 from SC.stochastic import mat_bpe_decode, mat2SC
 from dnn.mlpcode.activation import ACTIVATION_FUNCTIONS
@@ -18,15 +18,15 @@ class SCNetwork:
         self.num_layers = network.num_layers
 
         if binarized:
-            weights = [SCNetwork.binarize(weights[i]) for i in range(self.num_layers)]
-            biases = [SCNetwork.binarize(biases[i]) for i in range(self.num_layers)]
+            weights = [SCNetwork.binarize(w) for w in weights]
+            biases = [SCNetwork.binarize(b) for b in biases]
 
         for i in range(self.num_layers):
             weights[i] = np.append(weights[i], biases[i], axis=1)
 
-        self.weights = [mat2SC(weights[i], precision=precision) for i in range(self.num_layers)]
+        self.weights = [mat2SC(wb, precision=precision) for wb in weights]
         self.precision = precision
-        self.activations = [self.__hiddenAf for i in range(self.num_layers - 1)]
+        self.activations = [self.__hiddenAf for _ in range(self.num_layers - 1)]
         self.activations.append(self.__outAf)
 
     def forwardpass(self, x):
@@ -37,7 +37,7 @@ class SCNetwork:
                 mat2SC(np.ones((1, a.shape[1])), precision=self.precision),
                 axis=0
             )
-            z = dot(w, a, conc=10)
+            z = dot_sc(w, a, conc=10)
             a = mat2SC(
                 af(mat_bpe_decode(z, precision=self.precision, conc=10)),
                 precision=self.precision
@@ -59,7 +59,7 @@ class SCNetwork:
         for i in range(0, num_instances, 1000):
             x, y, detY = loadDataset(dataset, precision=self.precision, idx=i)
             for j in range(0, 1000, batch_size):
-                overall_correct += self.get_accuracy(x[:, i:i + batch_size], detY[:, i:i + batch_size])
+                overall_correct += self.get_accuracy(x[:, j:j + batch_size], detY[:, j:j + batch_size])
 
         return overall_correct
 
