@@ -45,24 +45,25 @@ def sum_sc(x: np.ndarray, conc=1):
     decimal_value = (2 * count - x.size) / n
     result = np.empty(conc * n, dtype=np.bool)
     i = 0
-    while decimal_value > 1 and conc != 1:
+    while decimal_value > 1 and conc != 0:
         result[i:i + n] = 1
         decimal_value -= 1
         conc -= 1
         i += n
 
-    while decimal_value < -1 and conc != 1:
+    while decimal_value < -1 and conc != 0:
         result[i:i + n] = 0
         decimal_value += 1
         conc -= 1
         i += n
 
-    if -1 <= decimal_value <= 1:
+    if -1 <= decimal_value <= 1 and conc != 0:
         # The decimal value is already quantized,  No need to quantize it again
         result[i:i + n] = random_stream(n, int(bpe_encode(decimal_value) * n))
-        if conc != 1:
-            i += n
+        i += n
+        if i+n <= result.size:
             result[i:i + n] = random_stream(n, n // 2)
+
 
     return result
 
