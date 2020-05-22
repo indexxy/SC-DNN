@@ -11,9 +11,9 @@ if __name__ == "__main__":
     """
     # Parameters
     dataset = DATASETS.mnist  # dataset to be tested
-    precision = 1024  # Stochastic bit-stream's length
-    binarized = False  # Whether the network is binarized or not
-    hiddenAf = af.sigmoid  # Activation function of the hidden layers
+    precision = 64  # Stochastic bit-stream's length
+    binarized = True  # Whether the network is binarized or not
+    hiddenAf = af.sign  # Activation function of the hidden layers
     outAf = af.softmax  # Activation function if the output layer
     parallel = True  # Divide the dataset to batches and test them in parallel
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     num_instances = 10000
 
     # Path of a trained DNN model
-    modelPath = MODELDIR / "Name of your model.npz"
+    modelPath = MODELDIR / "NAME_OF_YOUR_MODEL.npz"
     # Initializing a DNN using a pre-trained model
     nn = Network.fromModel(
         modelPath,
@@ -35,7 +35,9 @@ if __name__ == "__main__":
         hiddenAf=hiddenAf,
         outAf=outAf,
         precision=precision,
-        binarized=binarized
+        binarized=binarized,
+        hidden_scale=10,
+        out_scale=256
     )
 
     # number of correct predictions

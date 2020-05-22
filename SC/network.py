@@ -4,13 +4,15 @@ import numpy as np
 
 from SC.math import dot_sc
 from SC.load_utils import loadDataset, DATASETS
-from SC.stochastic import mat_bpe_decode, mat2SC
+from SC.stochastic import bpe_decode, SCNumber
 from dnn.mlpcode.activation import ACTIVATION_FUNCTIONS
+
 
 class SCNetwork:
     def __init__(
-        self, network, hiddenAf, outAf, precision, binarized=False
+        self, network, hiddenAf, outAf, precision, binarized=False, hidden_scale=1, out_scale=1
     ):
+
         self.__hiddenAf = ACTIVATION_FUNCTIONS[hiddenAf]
         self.__outAf = ACTIVATION_FUNCTIONS[outAf]
         weights = network.weights.copy()
@@ -24,29 +26,34 @@ class SCNetwork:
         for i in range(self.num_layers):
             weights[i] = np.append(weights[i], biases[i], axis=1)
 
-        self.weights = [mat2SC(wb, precision=precision) for wb in weights]
+        self.weights = [SCNumber(wb, precision=precision) for wb in weights]
         self.precision = precision
-        self.activations = [self.__hiddenAf for _ in range(self.num_layers - 1)]
-        self.activations.append(self.__outAf)
+        self.__activations = [self.__hiddenAf for _ in range(self.num_layers - 1)]
+        self.__activations.append(self.__outAf)
+        self.scales = {
+            self.__hiddenAf: hidden_scale,
+            self.__outAf: out_scale
+        }
 
     def forwardpass(self, x):
         a = x
-        for w, af in zip(self.weights, self.activations):
+        for w, af in zip(self.weights, self.__activations):
+            scale = self.scales[af]
             a = np.append(
                 a,
-                mat2SC(np.ones((1, a.shape[1])), precision=self.precision),
+                SCNumber(np.ones((1, a.shape[1])), precision=self.precision),
                 axis=0
             )
-            z = dot_sc(w, a, conc=10)
-            a = mat2SC(
-                af(mat_bpe_decode(z, precision=self.precision, conc=10)),
+            z = dot_sc(w, a, scale=scale)
+            a = SCNumber(
+                af(bpe_decode(z, precision=self.precision, scale=scale)),
                 precision=self.precision
             )
         return a
 
     def get_accuracy(self, x, y):
         preds = self.forwardpass(x)
-        preds = mat_bpe_decode(preds, precision=self.precision)
+        preds = bpe_decode(preds, precision=self.precision)
         preds = preds.argmax(axis=0).reshape(1, -1)
         return (preds == y).sum()
 

@@ -1,4 +1,4 @@
-from SC.stochastic import mat2SC
+from SC.stochastic import SCNumber
 import numpy as np
 from dnn.mlpcode.utils import loadMnist, loadFashionMnist, loadCifar10, loadMnistC
 import os
@@ -49,8 +49,8 @@ def dataset2SC(dataset: DATASETS, precision):
     testX = testX.T
 
     for i in range(0, num_instances, 1000):
-        Y = mat2SC(testY[:, i:i + 1000], precision=precision)
-        X = mat2SC(testX[:, i:i + 1000], precision=precision)
+        Y = SCNumber(testY[:, i:i + 1000], precision=precision)
+        X = SCNumber(testX[:, i:i + 1000], precision=precision)
         np.save(write_dir / 'labels' / str(i), Y)
         np.save(write_dir / 'images' / str(i), X)
 
