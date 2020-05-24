@@ -1,1 +1,0 @@
-Mnist dataset will be stored in this folder
