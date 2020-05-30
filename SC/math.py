@@ -76,7 +76,7 @@ def dot_sc(x: np.ndarray, y: np.ndarray, scale=1):
     assert x.shape[1] == y.shape[0]  # (i,j) . (k,z) --> k=j
 
     result = np.empty((x.shape[0], y.shape[1], x.shape[2] * scale), dtype=np.bool)
-    y_t = y.transpose(1, 0, 2)
+    y_t = y.transpose((1, 0, 2))
     for i in range(x.shape[0]):
         for j in range(y.shape[1]):
             result[i][j] = sum_sc(mul_sc(x[i], y_t[j]), scale=scale)
