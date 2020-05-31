@@ -9,30 +9,41 @@ import cupy as cp
 from SC.math import dot_sc
 from SC.stochastic import bpe_decode, SCNumber
 from SC.error import random_bit_flip
-from SC.utils import CacheDir, loadHDF5
+from SC.utils import CacheDir, loadModel
 from SC.activation import ACTIVATION_FUNCTIONS
 
 
 class SCNetwork:
     
     def __init__(
-            self, modelPath: Path, precision: int, useBias: bool, binarized=False, cache=False
+            self, modelPath: Path, precision: int, useBias: bool, useBatchNorm=True, binarized=False, cache=False
     ):
         self.useBias = useBias
         self.precision = precision
+        self.isBinarized = binarized
+        self.__batchNormParams = None
         self.cacheDir = None
         self.__weights = None
-        self.isBinarized = binarized
+        self.__H = None
 
-        weights, biases = loadHDF5(modelPath, useBias)
+        weights, biases, self.__batchNormParams = loadModel(modelPath, useBias)
+        if not useBatchNorm:
+            self.__batchNormParams = None
 
         self.num_layers = len(weights)
         if self.useBias:
             # Appending biases to weights
             for i in range(self.num_layers):
                 weights[i] = np.append(weights[i], biases[i], axis=1)
+
         if binarized:
-            weights = [SCNetwork.__binarize(w) for w in weights]
+            self.__H = []
+            for i in range(self.num_layers):
+                self.__H.append(
+                    np.sqrt(1.5 / (weights[i].shape[0] + weights[i].shape[1])).astype(
+                    np.float32)
+                )
+                weights[i] = SCNetwork.__binarize(weights[i])
 
         if cache:
             self.cacheDir = CacheDir(os.getpid())
@@ -54,6 +65,9 @@ class SCNetwork:
         self.isCompiled = False
 
     def compile(self, hiddenAf, outAf, hidden_scale=5, out_scale=10):
+        assert hiddenAf in ACTIVATION_FUNCTIONS
+        assert outAf in ACTIVATION_FUNCTIONS
+
         self.__hiddenAf = ACTIVATION_FUNCTIONS[hiddenAf]
         self.__outAf = ACTIVATION_FUNCTIONS[outAf]
         self.__activations = [self.__hiddenAf for _ in range(self.num_layers - 1)]
@@ -64,7 +78,7 @@ class SCNetwork:
         }
         self.isCompiled = True
 
-    def __getWeights(self, layer):
+    def getWeights(self, layer):
         assert layer <= self.num_layers
 
         if self.cacheDir is not None:
@@ -82,6 +96,19 @@ class SCNetwork:
 
         return w
 
+    def __batchNorm(self, z: np.ndarray, layer: int):
+        EPSILON = 1e-2
+        mu = self.__batchNormParams["mus"][layer]
+        sigma = self.__batchNormParams["sigmas"][layer]
+        gamma = self.__batchNormParams["gammas"][layer]
+        beta = self.__batchNormParams["betas"][layer]
+        ztilde = z - mu
+        ztilde /= np.sqrt(sigma + EPSILON)
+        ztilde *= gamma
+        ztilde += beta
+
+        return ztilde
+
     def forwardpass(self, x):
         # Expected x shape : (num_instances, num_features, precision)
         assert len(x.shape) == 3
@@ -90,7 +117,7 @@ class SCNetwork:
         layer = 0  # Layer counter
         for af in self.__activations:
 
-            w = self.__getWeights(layer)
+            w = self.getWeights(layer)
             scale = self.__scales[af]
 
             if self.useBias:
@@ -101,6 +128,12 @@ class SCNetwork:
 
             z = dot_sc(w, activation, scale=scale)
             z = bpe_decode(z, precision=self.precision, scale=scale)
+
+            if self.isBinarized:
+                z *= self.__H[layer]
+            if self.__batchNormParams is not None:
+                z = self.__batchNorm(z, layer)
+
             activation = SCNumber(af(z), precision=self.precision)
 
             if self.__faultParams is not None:
@@ -119,14 +152,16 @@ class SCNetwork:
         # Expected x shape: (num_instances, num_features)
         x = self.___preProcess(x)
         preds = self.forwardpass(x)
-        return bpe_decode(preds, precision=self.precision)
+
+        # Predictions shape : (num_instances, num_features)
+        return bpe_decode(preds, precision=self.precision).T
 
     def get_accuracy(self, x, y):
         # Expected x shape: (num_instances, num_features)
         # Expected y shape (num_instances, )
-        y = y.reshape(-1, 1)
         preds = self.predict(x)
-        preds = preds.argmax(axis=0).reshape(-1, 1)
+        preds = preds.argmax(axis=1)
+        print(preds.shape, y.shape)
         return np.count_nonzero(preds == y)
 
     def ___preProcess(self, x: np.ndarray):
@@ -150,6 +185,10 @@ class SCNetwork:
         # Expected x shape : (num_instances, num_features)
         # Expected y shape : (num_instances, )
 
+        assert batch_size >= 0
+        if batch_size == 0:
+            batch_size = x.shape[0]
+
         if not self.isCompiled:
             print('The network needs to be compiled first..')
             return -1
@@ -172,11 +211,13 @@ class SCNetwork:
     def __evaluateParallel(self, x: np.ndarray, y: np.ndarray, batch_size: int, processLimit):
         processCount = cpu_count()
         batchesCount = x.shape[0] // batch_size
-        if processCount > processLimit:
-            processCount = processLimit
-        if processCount > batchesCount:
-            processCount = batchesCount
-
+        if batchesCount == 0:
+            processCount = 1
+        else:
+            if processCount > processLimit:
+                processCount = processLimit
+            if processCount > batchesCount:
+                processCount = batchesCount
         pool = Pool(processCount)
         input_args = [
             (
@@ -235,11 +276,10 @@ class SCNetwork:
         return correct
 
     @staticmethod
-    def __binarize(x: np.ndarray, H=1.0) -> np.ndarray:
+    def __binarize(x: np.ndarray) -> np.ndarray:
         newX = x.copy()
         newX[x >= 0] = 1
         newX[x < 0] = -1
-        newX *= H
 
         return newX
 
