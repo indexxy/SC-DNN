@@ -16,9 +16,8 @@ from SC.activation import ACTIVATION_FUNCTIONS
 class SCNetwork:
     
     def __init__(
-            self, modelPath: Path, precision: int, useBias: bool, useBatchNorm=True, binarized=False, cache=False
+            self, modelPath: Path, precision: int, binarized=False, cache=False
     ):
-        self.useBias = useBias
         self.precision = precision
         self.isBinarized = binarized
         self.__batchNormParams = None
@@ -26,9 +25,11 @@ class SCNetwork:
         self.__weights = None
         self.__H = None
 
-        weights, biases, self.__batchNormParams = loadModel(modelPath, useBias)
-        if not useBatchNorm:
-            self.__batchNormParams = None
+        weights, biases, self.__batchNormParams = loadModel(modelPath)
+        if len(biases) == 0:
+            self.useBias = False
+        else:
+            self.useBias = True
 
         self.num_layers = len(weights)
         if self.useBias:
@@ -89,10 +90,9 @@ class SCNetwork:
             overwrite = False
 
         if self.__faultParams is not None:
-            n_bits = self.__faultParams['n_bits']
             rate = self.__faultParams['weights_rates'][layer]
             mode = self.__faultParams['mode']
-            w = SCNetwork.__injectFault(w, n_bits, rate, mode, overwrite=overwrite)
+            w = SCNetwork.__injectFault(w, rate, mode, overwrite=overwrite)
 
         return w
 
@@ -111,12 +111,11 @@ class SCNetwork:
 
     def forwardpass(self, x):
         # Expected x shape : (num_instances, num_features, precision)
-        assert len(x.shape) == 3
+        assert x.ndim == 3
 
-        activation = x.transpose(1, 0, 2)
+        activation = x.transpose((1, 0, 2))
         layer = 0  # Layer counter
         for af in self.__activations:
-
             w = self.getWeights(layer)
             scale = self.__scales[af]
 
@@ -137,13 +136,11 @@ class SCNetwork:
             activation = SCNumber(af(z), precision=self.precision)
 
             if self.__faultParams is not None:
-                self.__injectFault(
-                    activation,
-                    self.__faultParams['n_bits'],
-                    self.__faultParams['activations_rates'][layer],
-                    self.__faultParams['mode'],
-                    overwrite=True
-                )
+                rate = self.__faultParams['activations_rates'][layer]
+                if rate != 0.0:
+                    mode = self.__faultParams['mode']
+                    SCNetwork.__injectFault(activation, rate, mode, overwrite=True)
+
             layer += 1
 
         return activation
@@ -161,27 +158,31 @@ class SCNetwork:
         # Expected y shape (num_instances, )
         preds = self.predict(x)
         preds = preds.argmax(axis=1)
-        print(preds.shape, y.shape)
         return np.count_nonzero(preds == y)
 
     def ___preProcess(self, x: np.ndarray):
         # Expected x shape: (num_instances, num_features)
         x = SCNumber(x, precision=self.precision)
+
         if self.__faultParams is not None:
-            # Number of instances (Images)
-            n_instances = int(np.round(self.__faultParams['instances_rate'] * x.shape[0]))
-            # Number of features (Pixels)
-            n_features = int(np.round(self.__faultParams['features_rate'] * x.shape[1]))
-            instance_indices = np.random.choice(x.shape[0], n_instances, replace=False)
-            for i in instance_indices:
-                feature_indices = np.random.choice(x.shape[1], n_features, replace=False)
-                x[i, feature_indices] = random_bit_flip(
-                    x[i, feature_indices], self.__faultParams['n_bits'], self.__faultParams['mode']
-                )
+            ir = self.__faultParams['instances_rate']
+            fr = self.__faultParams['features_rate']
+            mode = self.__faultParams['mode']
+            if ir != 0.0 and fr != 0.0:
+                # Number of instances (Images)
+                n_instances = round(ir * x.shape[0])
+
+                # Number of bits
+                n_bits = round(fr * self.precision * x.shape[1])
+                instance_indices = np.random.choice(x.shape[0], n_instances, replace=False)
+
+                tmpX = x[instance_indices, :, :].reshape(-1, self.precision * x.shape[1])
+                tmpX = random_bit_flip(tmpX, n_bits=n_bits, mode=mode)
+                x[instance_indices] = tmpX.reshape(-1, x.shape[1], self.precision)
 
         return x
 
-    def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = 50, parallel=False, pLimit = 0):
+    def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = 50, parallel=True, pLimit = 0):
         # Expected x shape : (num_instances, num_features)
         # Expected y shape : (num_instances, )
 
@@ -236,14 +237,13 @@ class SCNetwork:
             self,
             x: np.ndarray,
             y: np.ndarray,
-            instances_rate: float,
-            features_rate: float,
-            weights_rates: Union[float, Sequence[float]],
-            n_bits: int,
-            activations_rates: Union[float, Sequence[float]] = 1.00,
+            instances_rate: float = 1.0,
+            features_rate: float = 0.00,
+            weights_rates: Union[float, Sequence[float]] = 0.00,
+            activations_rates: Union[float, Sequence[float]] = 0.00,
             mode: int = 2,
             batch_size: int = 50,
-            parallel=False,
+            parallel=True,
     ):
         if not self.isCompiled:
             print('The network needs to be compiled first..')
@@ -263,7 +263,6 @@ class SCNetwork:
             weights_rates=weights_rates,
             instances_rate=instances_rate,
             features_rate=features_rate,
-            n_bits=n_bits,
             activations_rates=activations_rates,
             mode=mode
         )
@@ -284,20 +283,16 @@ class SCNetwork:
         return newX
 
     @staticmethod
-    def __injectFault(x: np.ndarray, n_bits: int, rate: float, mode: int, overwrite: bool):
-        assert len(x.shape) == 3
+    def __injectFault(x: np.ndarray, rate: float, mode: int, overwrite: bool):
+        assert x.ndim == 3
         if not overwrite:
             x = x.copy()
 
-        # Number of elements to be manipulated
-        n = int(np.round(rate * x.size // x.shape[-1]))
-        # Generating random indices
-        indices = np.random.choice((x.size // x.shape[-1]), n, replace=False)
-        # Remapping
-        rows, columns = np.divmod(indices, x.shape[1])
-        x[rows, columns] = random_bit_flip(x[rows, columns], n_bits, mode=mode)
+        n_bits = round(rate * x.size)
+        x1d = x.reshape(x.size)
 
-        return x
+        return random_bit_flip(x1d, n_bits, mode=mode).reshape(x.shape)
+
 
     def __del__(self):
         if self.cacheDir is not None:
@@ -305,6 +300,6 @@ class SCNetwork:
                 if os is not None:
                     self.cacheDir.remove(os.getpid())
             except:
-                print('-----------')
+                print('-' * 15)
                 print('WARNING: Failed to delete cache folder ' + str(self.cacheDir) + '\nTry to delete it manually..')
-                print('-----------\n')
+                print('-' * 15 + '\n')

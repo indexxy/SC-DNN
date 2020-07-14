@@ -38,7 +38,7 @@ def counter_add(x, y):
 def sum_sc(x: np.ndarray, scale=1):
     # x is 2D numpy array holding n bit-streams
     # returns 1D numpy array as one bit-stream
-    assert len(x.shape) == 2
+    assert x.ndim == 2
     n = len(x[0])
     count = np.count_nonzero(x)
     # decimal_value = (count - (len(x)*n - count) ) / n
@@ -71,7 +71,7 @@ def sum_sc(x: np.ndarray, scale=1):
 def dot_sc(x: np.ndarray, y: np.ndarray, scale=1):
     # x , y are 3D numpy arrays holding n*m bit-streams
     # returns 3D numpy array containing bit-streams representing the result of x dot y
-    assert len(x.shape) == 3 and len(y.shape) == 3
+    assert x.ndim == 3 and y.ndim == 3
     assert x.shape[2] == y.shape[2]  # checking precisions
     assert x.shape[1] == y.shape[0]  # (i,j) . (k,z) --> k=j
 

@@ -3,7 +3,6 @@ import numpy as np
 from numba import guvectorize
 from typing import Union
 
-
 # To quantize a float or an array of floats
 # returns : float or an array of floats
 def quantize(x, min_val=-1, max_val=1, precision=16):
